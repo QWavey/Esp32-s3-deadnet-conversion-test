@@ -1,0 +1,5 @@
+Improve Jamming
+
+Edit and make UI better
+
+add deauthing without WiFi creds

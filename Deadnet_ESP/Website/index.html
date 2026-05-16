@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadnet ESP32</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div class="hero">
+        <h1>Deadnet</h1>
+        <p>ESP32 ARP Poison &amp; DNS Spoof Engine</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="attack" onclick="showTab('attack')">Attack</button>
+        <button class="tab-btn" data-tab="listener" onclick="showTab('listener')">ESP Listener</button>
+    </div>
+
+    <!-- ATTACK TAB -->
+    <div id="tab-attack" class="tab-content active">
+        <div class="grid">
+            <!-- STATUS CARD -->
+            <div class="card">
+                <h2>Status</h2>
+                <div class="pill-container">
+                    <span id="wifiPill" class="pill pill-red"><span class="dot pulse"></span>Disconnected</span>
+                    <span id="atkPill" class="pill pill-orange"><span class="dot"></span>Idle</span>
+                </div>
+                <div class="stat-row"><span>Target SSID</span><span class="stat-val" id="stSSID">–</span></div>
+                <div class="stat-row"><span>My IP</span><span class="stat-val" id="stIP">–</span></div>
+                <div class="stat-row"><span>Gateway</span><span class="stat-val" id="stGW">–</span></div>
+                <div class="stat-row"><span>Gateway MAC</span><span class="stat-val" id="stGWMAC">–</span></div>
+                <div class="stat-row"><span>Packets Sent</span><span class="stat-val" id="stPkts">0</span></div>
+                <div class="stat-row"><span>Attack Cycles</span><span class="stat-val" id="stCycles">0</span></div>
+                <div class="stat-row"><span>Hosts Poisoned</span><span class="stat-val" id="stHosts">0</span></div>
+            </div>
+
+            <!-- WIFI CONFIG CARD -->
+            <div class="card">
+                <h2>Network Setup</h2>
+                <div class="input-group">
+                    <label>Network (SSID)</label>
+                    <div class="row">
+                        <input type="text" id="inSSID" placeholder="Select or type SSID">
+                        <button class="btn btn-ghost btn-sm" id="scanBtn" onclick="doScan()">Scan</button>
+                    </div>
+                </div>
+                <div id="scanResults" class="net-list" style="display:none;"></div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="inPass" placeholder="WiFi password">
+                </div>
+                <div class="row">
+                    <button class="btn btn-green" id="connectBtn" onclick="doConnect()">Connect</button>
+                    <button class="btn btn-ghost btn-sm" onclick="doDisconnect()">&#10006;</button>
+                </div>
+                <div class="section-header">
+                    <div class="sect-title">Saved Networks</div>
+                    <button class="btn btn-ghost btn-sm text-red" onclick="clearSaved()">Clear All</button>
+                </div>
+                <div id="savedNets" class="net-list"></div>
+            </div>
+
+            <!-- ATTACK CARD -->
+            <div class="card">
+                <h2>Attack Control</h2>
+                <div class="input-group">
+                    <label>Mode</label>
+                    <select id="attackModeMain">
+                        <option value="arp">ARP Poisoning (Targeted)</option>
+                        <option value="dns">DNS Captive Portal Spoof</option>
+                        <option value="deauth">Deauth Attack (Instant Kill)</option>
+                        <option value="ra">IPv6 RA Spoof</option>
+                        <option value="blind">Blind Sweep (No Discovery)</option>
+                    </select>
+                </div>
+                <button id="atkBtnMain" class="btn btn-red full-width" onclick="toggleAttack('main')">&#9654; Start Attack</button>
+                
+                <div class="section-header">
+                    <div class="sect-title">Discovered Hosts</div>
+                    <button class="btn btn-ghost btn-sm text-orange" onclick="clearHostsUI()">Clear</button>
+                </div>
+                <div id="hostList" class="host-list">
+                    <div class="empty-state">No hosts discovered.</div>
+                </div>
+                <button class="btn btn-ghost btn-sm full-width" onclick="refreshHosts()">&#8635; Refresh Hosts</button>
+            </div>
+
+            <!-- LOGS CARD -->
+            <div class="card full-width">
+                <h2>System Logs</h2>
+                <div id="logs" class="logs">[info] System initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTENER TAB -->
+    <div id="tab-listener" class="tab-content">
+        <div class="grid">
+            <div class="card full-width">
+                <div class="section-header">
+                    <h2>Sniffing Control &amp; Session</h2>
+                </div>
+                <div class="input-group">
+                    <label>Intercept Mode</label>
+                    <select id="attackModeSniff">
+                        <option value="sniff">Sniffing (Bettercap Mode)</option>
+                        <option value="both">Full MITM (All Attacks + Sniff)</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <button id="atkBtnSniff" class="btn btn-red" onclick="toggleAttack('sniff')">&#9654; Start Listening</button>
+                    <button class="btn btn-ghost" onclick="startAll()">Start All (Extreme)</button>
+                </div>
+                <p class="description">Intercepting cleartext HTTP traffic and DNS queries from poisoned targets. Data is decrypted by the hardware MITM layer.</p>
+            </div>
+
+            <div class="card full-width">
+                <div class="tabs sub-tabs">
+                    <button class="tab-btn active" onclick="showSubTab('session')">Session Logs</button>
+                    <button class="tab-btn" onclick="showSubTab('devices')">Target Devices</button>
+                </div>
+
+                <div id="sub-session" class="sub-tab-content active">
+                    <div class="section-header">
+                        <h2>Captured Traffic</h2>
+                        <button class="btn btn-ghost btn-sm text-red" onclick="clearSniff()">Clear Logs</button>
+                    </div>
+                    <div id="sniffList" class="sniff-list">
+                        <div class="empty-state">No data captured yet.</div>
+                    </div>
+                </div>
+
+                <div id="sub-devices" class="sub-tab-content">
+                    <div class="section-header">
+                        <h2>Discovered Devices</h2>
+                        <button class="btn btn-green btn-sm" onclick="runTargeted()">Run Selected</button>
+                    </div>
+                    <div id="deviceList" class="sniff-list">
+                        <div class="empty-state">No devices found. Run a scan first.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
